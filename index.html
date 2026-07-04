@@ -285,6 +285,64 @@
     overflow-x: auto;
   }
 
+  .table-scroll.extrato {
+    max-height: 480px;
+    overflow-y: auto;
+  }
+
+  .table-scroll.extrato thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-panel);
+    box-shadow: 0 1px 0 var(--border);
+  }
+
+  .extrato-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .extrato-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .extrato-controls select,
+  .extrato-controls button {
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+
+  .extrato-controls button:hover,
+  .extrato-controls select:hover {
+    border-color: var(--accent);
+  }
+
+  .crossover-note {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  tr.row-marco td {
+    background: rgba(79, 209, 197, 0.10);
+  }
+
+  tr.row-crossover td {
+    background: rgba(242, 177, 52, 0.14);
+  }
+
   footer {
     max-width: var(--max-width);
     margin: 0 auto;
@@ -401,7 +459,7 @@
     </div>
 
     <div class="chart-wrap">
-      <h2>Marcos</h2>
+      <h2>Resumo de marcos</h2>
       <div class="table-scroll">
         <table>
           <thead>
@@ -415,6 +473,43 @@
           </thead>
           <tbody id="marcos-body"></tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="extrato-header">
+        <h2 style="margin:0;">Extrato mês a mês</h2>
+        <div class="extrato-controls">
+          <select id="extrato-filter" aria-label="Frequência do extrato">
+            <option value="1">Todos os meses</option>
+            <option value="3">A cada 3 meses</option>
+            <option value="6">A cada 6 meses</option>
+            <option value="12">A cada 12 meses (aniversário)</option>
+          </select>
+          <button id="extrato-csv" type="button">⇩ Exportar CSV</button>
+        </div>
+      </div>
+      <div class="crossover-note" id="crossover-note"></div>
+      <div class="table-scroll extrato">
+        <table>
+          <thead>
+            <tr>
+              <th>Mês</th>
+              <th>Anos</th>
+              <th>Patrimônio</th>
+              <th>Prêmio mensal</th>
+              <th>Prêmio acumulado</th>
+              <th>Rendimento mensal</th>
+              <th>Rendimento acumulado</th>
+              <th id="th-aporte" style="display:none;">Aporte externo</th>
+            </tr>
+          </thead>
+          <tbody id="extrato-body"></tbody>
+        </table>
+      </div>
+      <div class="legend-note">
+        <span><span class="swatch" style="background:#4fd1c5"></span> Mês em que um marco (R$250k/500k/750k/1M) foi atingido</span>
+        <span><span class="swatch" style="background:#f2b134"></span> Mês da virada — rendimento supera o prêmio</span>
       </div>
     </div>
   </div>
@@ -473,6 +568,12 @@
     headline: document.getElementById('headline'),
     headlineSub: document.getElementById('headline-sub'),
     marcosBody: document.getElementById('marcos-body'),
+
+    extratoBody: document.getElementById('extrato-body'),
+    extratoFilter: document.getElementById('extrato-filter'),
+    extratoCsv: document.getElementById('extrato-csv'),
+    thAporte: document.getElementById('th-aporte'),
+    crossoverNote: document.getElementById('crossover-note'),
   };
 
   function syncPair(slider, input, formatterEl, formatFn) {
@@ -562,6 +663,7 @@
     const capitalSerie = [patrimonio];
     const premioSerie = [0];
     const rendimentoSerie = [0];
+    const extrato = [];
 
     let premioAcumulado = 0;
     let rendimentoAcumulado = 0;
@@ -569,10 +671,12 @@
 
     const marcosAtingidos = {};
     let mesMeta = null;
+    let crossoverMes = null;
 
     let mes = 0;
     while (mes < MAX_MESES && patrimonio < meta) {
       mes += 1;
+      const patrimonioInicioMes = patrimonio;
       const capitalAlocavel = patrimonio <= tetoInicio
         ? patrimonio
         : tetoInicio + (patrimonio - tetoInicio) * tetoPct;
@@ -593,6 +697,26 @@
       premioSerie.push(premioAcumulado);
       rendimentoSerie.push(rendimentoAcumulado);
 
+      const marcoAtingidoAgora = MARCOS.find((m) => !(m in marcosAtingidos) && patrimonio >= m);
+
+      extrato.push({
+        mes,
+        patrimonioInicioMes,
+        capitalAlocavel,
+        premioBruto,
+        premioLiquido,
+        premioAcumulado,
+        rendimento,
+        rendimentoAcumulado,
+        aporteExterno,
+        patrimonioFimMes: patrimonio,
+        marco: marcoAtingidoAgora || null,
+      });
+
+      if (crossoverMes === null && rendimento > premioLiquido) {
+        crossoverMes = mes;
+      }
+
       for (const marco of MARCOS) {
         if (!(marco in marcosAtingidos) && patrimonio >= marco) {
           marcosAtingidos[marco] = { mes, premioMensal: premioLiquido, rendimentoMensal: rendimento };
@@ -604,7 +728,7 @@
       }
     }
 
-    return { meses, patrimonioSerie, capitalSerie, premioSerie, rendimentoSerie, marcosAtingidos, mesMeta };
+    return { meses, patrimonioSerie, capitalSerie, premioSerie, rendimentoSerie, marcosAtingidos, mesMeta, extrato, crossoverMes };
   }
 
   function renderHeadline(mesMeta) {
@@ -649,6 +773,77 @@
       }
       els.marcosBody.appendChild(row);
     });
+  }
+
+  function renderExtrato(result, params) {
+    const step = parseInt(els.extratoFilter.value, 10) || 1;
+    const showAporte = params.aporteExterno > 0;
+    els.thAporte.style.display = showAporte ? '' : 'none';
+
+    if (result.crossoverMes) {
+      els.crossoverNote.textContent = `A partir do mês ${result.crossoverMes} (${formatAnosMeses(result.crossoverMes)}), o rendimento mensal passa a superar o prêmio mensal.`;
+    } else {
+      els.crossoverNote.textContent = 'Nesta simulação, o prêmio mensal permanece maior que o rendimento durante toda a projeção.';
+    }
+
+    els.extratoBody.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    const total = result.extrato.length;
+
+    result.extrato.forEach((row, idx) => {
+      const isLast = idx === total - 1;
+      if (row.mes % step !== 0 && !row.marco && row.mes !== result.crossoverMes && !isLast) return;
+
+      const tr = document.createElement('tr');
+      if (row.marco) tr.classList.add('row-marco');
+      if (row.mes === result.crossoverMes) tr.classList.add('row-crossover');
+
+      tr.innerHTML = `
+        <td>${row.mes}</td>
+        <td>${formatAnosMeses(row.mes)}</td>
+        <td>${fmtBRL(row.patrimonioFimMes)}</td>
+        <td>${fmtBRLFull(row.premioLiquido)}</td>
+        <td>${fmtBRLFull(row.premioAcumulado)}</td>
+        <td>${fmtBRLFull(row.rendimento)}</td>
+        <td>${fmtBRLFull(row.rendimentoAcumulado)}</td>
+        ${showAporte ? `<td>${fmtBRLFull(row.aporteExterno)}</td>` : ''}
+      `;
+      frag.appendChild(tr);
+    });
+
+    els.extratoBody.appendChild(frag);
+  }
+
+  function exportExtratoCSV(result, params) {
+    const showAporte = params.aporteExterno > 0;
+    const headers = ['Mes', 'Anos', 'Patrimonio', 'PremioMensal', 'PremioAcumulado', 'RendimentoMensal', 'RendimentoAcumulado'];
+    if (showAporte) headers.push('AporteExterno');
+
+    const lines = [headers.join(';')];
+    result.extrato.forEach((row) => {
+      const cols = [
+        row.mes,
+        formatAnosMeses(row.mes),
+        row.patrimonioFimMes.toFixed(2),
+        row.premioLiquido.toFixed(2),
+        row.premioAcumulado.toFixed(2),
+        row.rendimento.toFixed(2),
+        row.rendimentoAcumulado.toFixed(2),
+      ];
+      if (showAporte) cols.push(row.aporteExterno.toFixed(2));
+      lines.push(cols.join(';'));
+    });
+
+    const csv = '﻿' + lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'extrato-projecao-patrimonial.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   function renderChart(result) {
@@ -761,6 +956,9 @@
     chart.update();
   }
 
+  let lastResult = null;
+  let lastParams = null;
+
   function recalc() {
     const params = {
       patrimonioInicial: parseFloat(els.inputPatrimonio.value) || 0,
@@ -774,10 +972,21 @@
     };
 
     const result = simulate(params);
+    lastResult = result;
+    lastParams = params;
     renderHeadline(result.mesMeta);
     renderMarcos(result.marcosAtingidos);
     renderChart(result);
+    renderExtrato(result, params);
   }
+
+  els.extratoFilter.addEventListener('change', () => {
+    if (lastResult && lastParams) renderExtrato(lastResult, lastParams);
+  });
+
+  els.extratoCsv.addEventListener('click', () => {
+    if (lastResult && lastParams) exportExtratoCSV(lastResult, lastParams);
+  });
 
   recalc();
 })();
