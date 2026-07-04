@@ -1,12 +1,21 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calculadora de Projeção Patrimonial — Opções + ETF</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  })();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root {
+    --max-width: 1600px;
     --bg: #16181d;
     --bg-panel: #1e2128;
     --bg-panel-2: #24272f;
@@ -19,6 +28,25 @@
     --danger: #f2637b;
     --warn: #f2b134;
     --good: #4fd1c5;
+    --chart-text: #9aa0ab;
+    --chart-grid: #2a2d35;
+  }
+
+  :root[data-theme="light"] {
+    --bg: #f4f5f7;
+    --bg-panel: #ffffff;
+    --bg-panel-2: #eef0f3;
+    --border: #dce0e6;
+    --text: #1a1d23;
+    --text-dim: #5b6270;
+    --accent: #0e8e82;
+    --accent-2: #3f7edb;
+    --accent-3: #c98a12;
+    --danger: #d1435c;
+    --warn: #a5690a;
+    --good: #0e8e82;
+    --chart-text: #5b6270;
+    --chart-grid: #dde1e6;
   }
 
   * { box-sizing: border-box; }
@@ -29,11 +57,13 @@
     background: var(--bg);
     color: var(--text);
     line-height: 1.4;
+    transition: background 0.15s ease, color 0.15s ease;
   }
 
   header {
     padding: 24px 20px 12px;
     text-align: center;
+    position: relative;
   }
 
   header h1 {
@@ -48,18 +78,50 @@
     font-size: 0.9rem;
   }
 
+  @media (max-width: 560px) {
+    header {
+      padding: 64px 16px 12px;
+    }
+    .theme-toggle {
+      padding: 6px 10px;
+      font-size: 0.78rem;
+    }
+  }
+
+  .theme-toggle {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .theme-toggle:hover {
+    border-color: var(--accent);
+  }
+
   .container {
-    max-width: 1100px;
+    max-width: var(--max-width);
     margin: 0 auto;
-    padding: 0 16px 40px;
+    padding: 0 24px 40px;
     display: grid;
-    grid-template-columns: 340px 1fr;
+    grid-template-columns: minmax(300px, 380px) 1fr;
     gap: 20px;
   }
 
   @media (max-width: 860px) {
     .container {
       grid-template-columns: 1fr;
+      padding: 0 16px 40px;
     }
   }
 
@@ -187,7 +249,7 @@
 
   .chart-container {
     position: relative;
-    height: 360px;
+    height: 420px;
   }
 
   table {
@@ -224,7 +286,7 @@
   }
 
   footer {
-    max-width: 1100px;
+    max-width: var(--max-width);
     margin: 0 auto;
     padding: 20px 16px 40px;
     color: var(--text-dim);
@@ -257,6 +319,10 @@
 </style>
 </head>
 <body>
+
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Alternar tema claro/escuro">
+  <span id="theme-toggle-icon">🌙</span> <span id="theme-toggle-label">Escuro</span>
+</button>
 
 <header>
   <h1>Calculadora de Projeção Patrimonial</h1>
@@ -363,6 +429,17 @@
   const fmtBRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
   const fmtBRLFull = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 });
 
+  function formatAnosMeses(mes) {
+    const anos = Math.floor(mes / 12);
+    const mesesResto = mes % 12;
+    if (mesesResto === 0) return `${anos}a`;
+    return `${anos}a ${mesesResto}m`;
+  }
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
   const els = {
     sliderPatrimonio: document.getElementById('slider-patrimonio'),
     inputPatrimonio: document.getElementById('input-patrimonio'),
@@ -442,6 +519,27 @@
   els.sliderIrPremio.addEventListener('input', () => {
     els.valIrPremio.textContent = els.sliderIrPremio.value + '%';
     recalc();
+  });
+
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeToggleIcon = document.getElementById('theme-toggle-icon');
+  const themeToggleLabel = document.getElementById('theme-toggle-label');
+
+  function updateThemeToggleUI() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    themeToggleIcon.textContent = current === 'dark' ? '🌙' : '☀️';
+    themeToggleLabel.textContent = current === 'dark' ? 'Escuro' : 'Claro';
+  }
+
+  updateThemeToggleUI();
+
+  themeToggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    updateThemeToggleUI();
+    applyChartTheme();
   });
 
   const MARCOS = [250000, 500000, 750000, 1000000];
@@ -536,7 +634,7 @@
         row.innerHTML = `
           <td>${fmtBRL(marco)}</td>
           <td>${info.mes}</td>
-          <td>${(info.mes / 12).toFixed(1)}</td>
+          <td>${formatAnosMeses(info.mes)}</td>
           <td>${fmtBRLFull(info.premioMensal)}</td>
           <td>${fmtBRLFull(info.rendimentoMensal)}</td>
         `;
@@ -602,6 +700,9 @@
       return;
     }
 
+    const chartText = cssVar('--chart-text');
+    const chartGrid = cssVar('--chart-grid');
+
     chart = new Chart(ctx, {
       type: 'line',
       data: { labels, datasets },
@@ -612,29 +713,52 @@
         scales: {
           x: {
             stacked: true,
-            title: { display: true, text: 'Meses', color: '#9aa0ab' },
-            ticks: { color: '#9aa0ab', maxTicksLimit: 12 },
-            grid: { color: '#2a2d35' },
+            title: { display: true, text: 'Meses (anos equivalentes)', color: chartText },
+            ticks: {
+              color: chartText,
+              maxTicksLimit: 12,
+              callback: function (value) {
+                const m = this.getLabelForValue(value);
+                return `${m} (${formatAnosMeses(m)})`;
+              },
+            },
+            grid: { color: chartGrid },
           },
           y: {
             stacked: true,
             ticks: {
-              color: '#9aa0ab',
+              color: chartText,
               callback: (v) => fmtBRL(v),
             },
-            grid: { color: '#2a2d35' },
+            grid: { color: chartGrid },
           },
         },
         plugins: {
           legend: { display: false },
           tooltip: {
             callbacks: {
+              title: (items) => {
+                const m = items[0].label;
+                return `Mês ${m} — ${formatAnosMeses(Number(m))}`;
+              },
               label: (item) => `${item.dataset.label}: ${fmtBRL(item.parsed.y)}`,
             },
           },
         },
       },
     });
+  }
+
+  function applyChartTheme() {
+    if (!chart) return;
+    const chartText = cssVar('--chart-text');
+    const chartGrid = cssVar('--chart-grid');
+    chart.options.scales.x.title.color = chartText;
+    chart.options.scales.x.ticks.color = chartText;
+    chart.options.scales.x.grid.color = chartGrid;
+    chart.options.scales.y.ticks.color = chartText;
+    chart.options.scales.y.grid.color = chartGrid;
+    chart.update();
   }
 
   function recalc() {
