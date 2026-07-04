@@ -30,6 +30,9 @@
     --good: #4fd1c5;
     --chart-text: #9aa0ab;
     --chart-grid: #2a2d35;
+    --series-1: #3987e5;
+    --series-2: #199e70;
+    --series-3: #c98500;
   }
 
   :root[data-theme="light"] {
@@ -47,6 +50,9 @@
     --good: #0e8e82;
     --chart-text: #5b6270;
     --chart-grid: #dde1e6;
+    --series-1: #2a78d6;
+    --series-2: #1baf7a;
+    --series-3: #eda100;
   }
 
   * { box-sizing: border-box; }
@@ -452,9 +458,9 @@
         <canvas id="chart"></canvas>
       </div>
       <div class="legend-note">
-        <span><span class="swatch" style="background:#6ea8fe"></span> Capital inicial + aportes</span>
-        <span><span class="swatch" style="background:#f2b134"></span> Prêmio acumulado</span>
-        <span><span class="swatch" style="background:#4fd1c5"></span> Rendimento acumulado</span>
+        <span><span class="swatch" style="background:var(--series-1)"></span> Capital inicial + aportes</span>
+        <span><span class="swatch" style="background:var(--series-2)"></span> Prêmio acumulado</span>
+        <span><span class="swatch" style="background:var(--series-3)"></span> Rendimento acumulado</span>
       </div>
     </div>
 
@@ -640,7 +646,7 @@
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
     updateThemeToggleUI();
-    applyChartTheme();
+    if (lastResult) renderChart(lastResult);
   });
 
   const MARCOS = [250000, 500000, 750000, 1000000];
@@ -846,6 +852,35 @@
     URL.revokeObjectURL(url);
   }
 
+  function hexToRgba(hex, alpha) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function buildDataset(label, data, colorVar, surface, fillMode) {
+    const color = cssVar(colorVar);
+    const n = data.length;
+    return {
+      label,
+      data,
+      borderColor: color,
+      backgroundColor: hexToRgba(color, 0.10),
+      fill: fillMode,
+      stack: 'total',
+      borderWidth: 2,
+      pointRadius: (ctx) => (ctx.dataIndex === n - 1 ? 4 : 0),
+      pointHoverRadius: 4,
+      pointBackgroundColor: color,
+      pointBorderColor: surface,
+      pointBorderWidth: 2,
+      pointHoverBorderColor: surface,
+      pointHoverBorderWidth: 2,
+    };
+  }
+
   function renderChart(result) {
     const ctx = document.getElementById('chart').getContext('2d');
 
@@ -855,48 +890,27 @@
     const premioData = result.premioSerie.filter((_, i) => i % step === 0);
     const rendimentoData = result.rendimentoSerie.filter((_, i) => i % step === 0);
 
+    const surface = cssVar('--bg-panel');
+    const chartText = cssVar('--chart-text');
+    const chartGrid = cssVar('--chart-grid');
+
     const datasets = [
-      {
-        label: 'Capital inicial + aportes',
-        data: capitalData,
-        borderColor: '#6ea8fe',
-        backgroundColor: 'rgba(110, 168, 254, 0.35)',
-        fill: 'origin',
-        stack: 'total',
-        pointRadius: 0,
-        borderWidth: 1.5,
-      },
-      {
-        label: 'Prêmio acumulado',
-        data: premioData,
-        borderColor: '#f2b134',
-        backgroundColor: 'rgba(242, 177, 52, 0.35)',
-        fill: '-1',
-        stack: 'total',
-        pointRadius: 0,
-        borderWidth: 1.5,
-      },
-      {
-        label: 'Rendimento acumulado',
-        data: rendimentoData,
-        borderColor: '#4fd1c5',
-        backgroundColor: 'rgba(79, 209, 197, 0.35)',
-        fill: '-1',
-        stack: 'total',
-        pointRadius: 0,
-        borderWidth: 1.5,
-      },
+      buildDataset('Capital inicial + aportes', capitalData, '--series-1', surface, 'origin'),
+      buildDataset('Prêmio acumulado', premioData, '--series-2', surface, '-1'),
+      buildDataset('Rendimento acumulado', rendimentoData, '--series-3', surface, '-1'),
     ];
 
     if (chart) {
       chart.data.labels = labels;
       chart.data.datasets = datasets;
+      chart.options.scales.x.title.color = chartText;
+      chart.options.scales.x.ticks.color = chartText;
+      chart.options.scales.x.grid.color = chartGrid;
+      chart.options.scales.y.ticks.color = chartText;
+      chart.options.scales.y.grid.color = chartGrid;
       chart.update();
       return;
     }
-
-    const chartText = cssVar('--chart-text');
-    const chartGrid = cssVar('--chart-grid');
 
     chart = new Chart(ctx, {
       type: 'line',
@@ -917,7 +931,8 @@
                 return `${m} (${formatAnosMeses(m)})`;
               },
             },
-            grid: { color: chartGrid },
+            grid: { color: chartGrid, drawTicks: false },
+            border: { display: false },
           },
           y: {
             stacked: true,
@@ -925,12 +940,20 @@
               color: chartText,
               callback: (v) => fmtBRL(v),
             },
-            grid: { color: chartGrid },
+            grid: { color: chartGrid, drawTicks: false },
+            border: { display: false },
           },
         },
         plugins: {
           legend: { display: false },
           tooltip: {
+            backgroundColor: surface,
+            titleColor: cssVar('--text'),
+            bodyColor: cssVar('--text-dim'),
+            borderColor: chartGrid,
+            borderWidth: 1,
+            padding: 10,
+            boxPadding: 4,
             callbacks: {
               title: (items) => {
                 const m = items[0].label;
@@ -942,18 +965,6 @@
         },
       },
     });
-  }
-
-  function applyChartTheme() {
-    if (!chart) return;
-    const chartText = cssVar('--chart-text');
-    const chartGrid = cssVar('--chart-grid');
-    chart.options.scales.x.title.color = chartText;
-    chart.options.scales.x.ticks.color = chartText;
-    chart.options.scales.x.grid.color = chartGrid;
-    chart.options.scales.y.ticks.color = chartText;
-    chart.options.scales.y.grid.color = chartGrid;
-    chart.update();
   }
 
   let lastResult = null;
