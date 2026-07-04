@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Projeção Patrimonial — Opções + ETF</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #16181d;
+    --bg-panel: #1e2128;
+    --bg-panel-2: #24272f;
+    --border: #33373f;
+    --text: #e8eaed;
+    --text-dim: #9aa0ab;
+    --accent: #4fd1c5;
+    --accent-2: #6ea8fe;
+    --accent-3: #f2b134;
+    --danger: #f2637b;
+    --warn: #f2b134;
+    --good: #4fd1c5;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  header {
+    padding: 24px 20px 12px;
+    text-align: center;
+  }
+
+  header h1 {
+    margin: 0 0 4px;
+    font-size: 1.4rem;
+    font-weight: 600;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 16px 40px;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 860px) {
+    .container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+
+  .panel + .panel {
+    margin-top: 20px;
+  }
+
+  .panel h2 {
+    margin: 0 0 14px;
+    font-size: 1rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .field {
+    margin-bottom: 18px;
+  }
+
+  .field label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .field label .value {
+    color: var(--text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .field input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  .field input[type="number"] {
+    width: 100%;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    margin-top: 6px;
+  }
+
+  .field input[type="number"]:focus,
+  .field input[type="range"]:focus {
+    outline: 1px solid var(--accent);
+  }
+
+  .warn-badge {
+    display: none;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--warn);
+    background: rgba(242, 177, 52, 0.12);
+    border: 1px solid rgba(242, 177, 52, 0.35);
+    padding: 5px 8px;
+    border-radius: 6px;
+  }
+
+  .warn-badge.show { display: block; }
+
+  .hero {
+    background: linear-gradient(135deg, var(--bg-panel), var(--bg-panel-2));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .hero .label {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+
+  .hero .headline {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 700;
+    color: var(--good);
+  }
+
+  .hero .headline.miss {
+    color: var(--danger);
+  }
+
+  .hero .sub {
+    margin-top: 8px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+
+  .chart-wrap {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 20px;
+  }
+
+  .chart-wrap h2 {
+    margin: 0 0 14px;
+    font-size: 1rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .chart-container {
+    position: relative;
+    height: 360px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  th, td {
+    text-align: right;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+
+  th:first-child, td:first-child {
+    text-align: left;
+  }
+
+  th {
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  td.dim {
+    color: var(--text-dim);
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+  }
+
+  footer {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    text-align: center;
+    border-top: 1px solid var(--border);
+  }
+
+  .legend-note {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-top: 10px;
+  }
+
+  .legend-note span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Calculadora de Projeção Patrimonial</h1>
+  <p>Venda de opções + ETF — simulação mês a mês até a meta</p>
+</header>
+
+<div class="container">
+  <div>
+    <div class="panel">
+      <h2>Parâmetros</h2>
+
+      <div class="field">
+        <label>Patrimônio inicial <span class="value" id="val-patrimonio">R$ 120.000</span></label>
+        <input type="range" id="slider-patrimonio" min="10000" max="1000000" step="1000" value="120000">
+        <input type="number" id="input-patrimonio" min="0" step="1000" value="120000">
+      </div>
+
+      <div class="field">
+        <label>Meta <span class="value" id="val-meta">R$ 1.000.000</span></label>
+        <input type="range" id="slider-meta" min="200000" max="5000000" step="10000" value="1000000">
+        <input type="number" id="input-meta" min="0" step="10000" value="1000000">
+      </div>
+
+      <div class="field">
+        <label>Taxa de extração de prêmio mensal <span class="value" id="val-taxa-extracao">2,0%</span></label>
+        <input type="range" id="slider-taxa-extracao" min="0.5" max="4.0" step="0.1" value="2.0">
+        <div class="warn-badge" id="warn-taxa-extracao">⚠ Acima de 2,5% ao mês é uma premissa otimista de extração de prêmio.</div>
+      </div>
+
+      <div class="field">
+        <label>Rendimento mensal do ETF/aplicação (líquido de IR) <span class="value" id="val-rendimento">0,90%</span></label>
+        <input type="range" id="slider-rendimento" min="0.3" max="1.2" step="0.05" value="0.9">
+      </div>
+
+      <div class="field">
+        <label>Teto de alocação (% do patrimônio acima do limiar) <span class="value" id="val-teto-pct">100%</span></label>
+        <input type="range" id="slider-teto-pct" min="40" max="100" step="1" value="100">
+      </div>
+
+      <div class="field">
+        <label>Patrimônio a partir do qual o teto passa a valer <span class="value" id="val-teto-inicio">R$ 400.000</span></label>
+        <input type="range" id="slider-teto-inicio" min="0" max="2000000" step="10000" value="400000">
+        <input type="number" id="input-teto-inicio" min="0" step="10000" value="400000">
+      </div>
+
+      <div class="field">
+        <label>Alíquota de IR sobre o prêmio <span class="value" id="val-ir-premio">15%</span></label>
+        <input type="range" id="slider-ir-premio" min="0" max="30" step="1" value="15">
+      </div>
+
+      <div class="field">
+        <label>Aporte externo mensal <span class="value" id="val-aporte">R$ 0</span></label>
+        <input type="range" id="slider-aporte" min="0" max="20000" step="500" value="0">
+        <input type="number" id="input-aporte" min="0" step="500" value="0">
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="hero">
+      <div class="label">Resultado da simulação</div>
+      <div class="headline" id="headline">—</div>
+      <div class="sub" id="headline-sub"></div>
+    </div>
+
+    <div class="chart-wrap">
+      <h2>Evolução do patrimônio</h2>
+      <div class="chart-container">
+        <canvas id="chart"></canvas>
+      </div>
+      <div class="legend-note">
+        <span><span class="swatch" style="background:#6ea8fe"></span> Capital inicial + aportes</span>
+        <span><span class="swatch" style="background:#f2b134"></span> Prêmio acumulado</span>
+        <span><span class="swatch" style="background:#4fd1c5"></span> Rendimento acumulado</span>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <h2>Marcos</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Marco</th>
+              <th>Mês</th>
+              <th>Anos</th>
+              <th>Prêmio mensal</th>
+              <th>Rendimento mensal</th>
+            </tr>
+          </thead>
+          <tbody id="marcos-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Projeção baseada em premissas calibráveis. Venda de opção não garante prêmio mensal constante — meses negativos ocorrem e atrasam a meta. Ferramenta de simulação, não promessa de retorno.
+</footer>
+
+<script>
+(function () {
+  const fmtBRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const fmtBRLFull = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 });
+
+  const els = {
+    sliderPatrimonio: document.getElementById('slider-patrimonio'),
+    inputPatrimonio: document.getElementById('input-patrimonio'),
+    valPatrimonio: document.getElementById('val-patrimonio'),
+
+    sliderMeta: document.getElementById('slider-meta'),
+    inputMeta: document.getElementById('input-meta'),
+    valMeta: document.getElementById('val-meta'),
+
+    sliderTaxaExtracao: document.getElementById('slider-taxa-extracao'),
+    valTaxaExtracao: document.getElementById('val-taxa-extracao'),
+    warnTaxaExtracao: document.getElementById('warn-taxa-extracao'),
+
+    sliderRendimento: document.getElementById('slider-rendimento'),
+    valRendimento: document.getElementById('val-rendimento'),
+
+    sliderTetoPct: document.getElementById('slider-teto-pct'),
+    valTetoPct: document.getElementById('val-teto-pct'),
+
+    sliderTetoInicio: document.getElementById('slider-teto-inicio'),
+    inputTetoInicio: document.getElementById('input-teto-inicio'),
+    valTetoInicio: document.getElementById('val-teto-inicio'),
+
+    sliderIrPremio: document.getElementById('slider-ir-premio'),
+    valIrPremio: document.getElementById('val-ir-premio'),
+
+    sliderAporte: document.getElementById('slider-aporte'),
+    inputAporte: document.getElementById('input-aporte'),
+    valAporte: document.getElementById('val-aporte'),
+
+    headline: document.getElementById('headline'),
+    headlineSub: document.getElementById('headline-sub'),
+    marcosBody: document.getElementById('marcos-body'),
+  };
+
+  function syncPair(slider, input, formatterEl, formatFn) {
+    function updateFromSlider() {
+      input.value = slider.value;
+      if (formatterEl) formatterEl.textContent = formatFn(parseFloat(slider.value));
+      recalc();
+    }
+    function updateFromInput() {
+      let v = parseFloat(input.value);
+      if (isNaN(v)) return;
+      v = Math.min(Math.max(v, parseFloat(slider.min)), parseFloat(slider.max));
+      slider.value = v;
+      if (formatterEl) formatterEl.textContent = formatFn(v);
+      recalc();
+    }
+    slider.addEventListener('input', updateFromSlider);
+    input.addEventListener('input', updateFromInput);
+  }
+
+  syncPair(els.sliderPatrimonio, els.inputPatrimonio, els.valPatrimonio, (v) => fmtBRL(v));
+  syncPair(els.sliderMeta, els.inputMeta, els.valMeta, (v) => fmtBRL(v));
+  syncPair(els.sliderTetoInicio, els.inputTetoInicio, els.valTetoInicio, (v) => fmtBRL(v));
+  syncPair(els.sliderAporte, els.inputAporte, els.valAporte, (v) => fmtBRL(v));
+
+  els.sliderTaxaExtracao.addEventListener('input', () => {
+    const v = parseFloat(els.sliderTaxaExtracao.value);
+    els.valTaxaExtracao.textContent = v.toLocaleString('pt-BR', { minimumFractionDigits: 1 }) + '%';
+    els.warnTaxaExtracao.classList.toggle('show', v > 2.5);
+    recalc();
+  });
+
+  els.sliderRendimento.addEventListener('input', () => {
+    const v = parseFloat(els.sliderRendimento.value);
+    els.valRendimento.textContent = v.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) + '%';
+    recalc();
+  });
+
+  els.sliderTetoPct.addEventListener('input', () => {
+    els.valTetoPct.textContent = els.sliderTetoPct.value + '%';
+    recalc();
+  });
+
+  els.sliderIrPremio.addEventListener('input', () => {
+    els.valIrPremio.textContent = els.sliderIrPremio.value + '%';
+    recalc();
+  });
+
+  const MARCOS = [250000, 500000, 750000, 1000000];
+  const MAX_MESES = 360;
+
+  let chart = null;
+
+  function simulate(params) {
+    let patrimonio = params.patrimonioInicial;
+    const tetoInicio = params.tetoInicio;
+    const tetoPct = params.tetoPct;
+    const taxaExtracao = params.taxaExtracao;
+    const taxaRendimento = params.taxaRendimento;
+    const irPremio = params.irPremio;
+    const aporteExterno = params.aporteExterno;
+    const meta = params.meta;
+
+    const meses = [0];
+    const patrimonioSerie = [patrimonio];
+    const capitalSerie = [patrimonio];
+    const premioSerie = [0];
+    const rendimentoSerie = [0];
+
+    let premioAcumulado = 0;
+    let rendimentoAcumulado = 0;
+    let capitalAcumulado = patrimonio;
+
+    const marcosAtingidos = {};
+    let mesMeta = null;
+
+    let mes = 0;
+    while (mes < MAX_MESES && patrimonio < meta) {
+      mes += 1;
+      const capitalAlocavel = patrimonio <= tetoInicio
+        ? patrimonio
+        : tetoInicio + (patrimonio - tetoInicio) * tetoPct;
+
+      const premioBruto = capitalAlocavel * taxaExtracao;
+      const premioLiquido = premioBruto * (1 - irPremio);
+      const rendimento = patrimonio * taxaRendimento;
+
+      patrimonio = patrimonio + premioLiquido + rendimento + aporteExterno;
+
+      premioAcumulado += premioLiquido;
+      rendimentoAcumulado += rendimento;
+      capitalAcumulado += aporteExterno;
+
+      meses.push(mes);
+      patrimonioSerie.push(patrimonio);
+      capitalSerie.push(capitalAcumulado);
+      premioSerie.push(premioAcumulado);
+      rendimentoSerie.push(rendimentoAcumulado);
+
+      for (const marco of MARCOS) {
+        if (!(marco in marcosAtingidos) && patrimonio >= marco) {
+          marcosAtingidos[marco] = { mes, premioMensal: premioLiquido, rendimentoMensal: rendimento };
+        }
+      }
+
+      if (mesMeta === null && patrimonio >= meta) {
+        mesMeta = mes;
+      }
+    }
+
+    return { meses, patrimonioSerie, capitalSerie, premioSerie, rendimentoSerie, marcosAtingidos, mesMeta };
+  }
+
+  function renderHeadline(mesMeta) {
+    if (mesMeta === null) {
+      els.headline.textContent = 'Meta não atingida em 30 anos';
+      els.headline.classList.add('miss');
+      els.headlineSub.textContent = 'Ajuste os parâmetros ou aumente o prazo de simulação.';
+    } else {
+      const anos = Math.floor(mesMeta / 12);
+      const mesesResto = mesMeta % 12;
+      els.headline.classList.remove('miss');
+      let texto = `Meta atingida em ${anos} ano${anos !== 1 ? 's' : ''}`;
+      if (mesesResto > 0) {
+        texto += ` e ${mesesResto} ${mesesResto !== 1 ? 'meses' : 'mês'}`;
+      }
+      els.headline.textContent = texto;
+      els.headlineSub.textContent = `Total de ${mesMeta} meses de simulação.`;
+    }
+  }
+
+  function renderMarcos(marcosAtingidos) {
+    els.marcosBody.innerHTML = '';
+    MARCOS.forEach((marco) => {
+      const row = document.createElement('tr');
+      const info = marcosAtingidos[marco];
+      if (info) {
+        row.innerHTML = `
+          <td>${fmtBRL(marco)}</td>
+          <td>${info.mes}</td>
+          <td>${(info.mes / 12).toFixed(1)}</td>
+          <td>${fmtBRLFull(info.premioMensal)}</td>
+          <td>${fmtBRLFull(info.rendimentoMensal)}</td>
+        `;
+      } else {
+        row.innerHTML = `
+          <td>${fmtBRL(marco)}</td>
+          <td class="dim">—</td>
+          <td class="dim">—</td>
+          <td class="dim">—</td>
+          <td class="dim">—</td>
+        `;
+      }
+      els.marcosBody.appendChild(row);
+    });
+  }
+
+  function renderChart(result) {
+    const ctx = document.getElementById('chart').getContext('2d');
+
+    const step = result.meses.length > 120 ? Math.ceil(result.meses.length / 120) : 1;
+    const labels = result.meses.filter((_, i) => i % step === 0).map((m) => m);
+    const capitalData = result.capitalSerie.filter((_, i) => i % step === 0);
+    const premioData = result.premioSerie.filter((_, i) => i % step === 0);
+    const rendimentoData = result.rendimentoSerie.filter((_, i) => i % step === 0);
+
+    const datasets = [
+      {
+        label: 'Capital inicial + aportes',
+        data: capitalData,
+        borderColor: '#6ea8fe',
+        backgroundColor: 'rgba(110, 168, 254, 0.35)',
+        fill: 'origin',
+        stack: 'total',
+        pointRadius: 0,
+        borderWidth: 1.5,
+      },
+      {
+        label: 'Prêmio acumulado',
+        data: premioData,
+        borderColor: '#f2b134',
+        backgroundColor: 'rgba(242, 177, 52, 0.35)',
+        fill: '-1',
+        stack: 'total',
+        pointRadius: 0,
+        borderWidth: 1.5,
+      },
+      {
+        label: 'Rendimento acumulado',
+        data: rendimentoData,
+        borderColor: '#4fd1c5',
+        backgroundColor: 'rgba(79, 209, 197, 0.35)',
+        fill: '-1',
+        stack: 'total',
+        pointRadius: 0,
+        borderWidth: 1.5,
+      },
+    ];
+
+    if (chart) {
+      chart.data.labels = labels;
+      chart.data.datasets = datasets;
+      chart.update();
+      return;
+    }
+
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: {
+            stacked: true,
+            title: { display: true, text: 'Meses', color: '#9aa0ab' },
+            ticks: { color: '#9aa0ab', maxTicksLimit: 12 },
+            grid: { color: '#2a2d35' },
+          },
+          y: {
+            stacked: true,
+            ticks: {
+              color: '#9aa0ab',
+              callback: (v) => fmtBRL(v),
+            },
+            grid: { color: '#2a2d35' },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (item) => `${item.dataset.label}: ${fmtBRL(item.parsed.y)}`,
+            },
+          },
+        },
+      },
+    });
+  }
+
+  function recalc() {
+    const params = {
+      patrimonioInicial: parseFloat(els.inputPatrimonio.value) || 0,
+      meta: parseFloat(els.inputMeta.value) || 0,
+      taxaExtracao: parseFloat(els.sliderTaxaExtracao.value) / 100,
+      taxaRendimento: parseFloat(els.sliderRendimento.value) / 100,
+      tetoPct: parseFloat(els.sliderTetoPct.value) / 100,
+      tetoInicio: parseFloat(els.inputTetoInicio.value) || 0,
+      irPremio: parseFloat(els.sliderIrPremio.value) / 100,
+      aporteExterno: parseFloat(els.inputAporte.value) || 0,
+    };
+
+    const result = simulate(params);
+    renderHeadline(result.mesMeta);
+    renderMarcos(result.marcosAtingidos);
+    renderChart(result);
+  }
+
+  recalc();
+})();
+</script>
+
+</body>
+</html>
